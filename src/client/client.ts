@@ -5,9 +5,9 @@ import { DataEvent } from './event/dataEvent';
 import { QueryEvent } from './event/queryEvent';
 import { StoreEvent } from './event/storeEvent';
 import { Query, QueryKeyProps } from './query';
-import { IdProps, RequestState } from './types';
-
-export const AsyncFunction = async function () {}.constructor;
+import { IdProps, QueryOptions, RequestState } from './types';
+import { hashArray } from './utils';
+import { createId, extractParams } from './utils/id';
 
 export type Config = {
   cache?: CacheConfig,
@@ -29,11 +29,15 @@ const DEFAULT_OPTIONS: Config = Object.freeze({
 export type FetchQueryProps<T extends (...args: Parameters<T>) => ReturnType<T>> = {
   queryFn: T,
   queryKey: IdProps<T>,
-  state: RequestState,
-  result?: ReturnType<T>,
+  state?: RequestState,
+  data?: Awaited<ReturnType<T>>,
+  error?: any,
+  options?: QueryOptions,
 }
 
-type DefaultFunction = (...args: any[]) => any;
+export type DefaultFunction = (...args: any[]) => any;
+
+export const AsyncFunction = async function () {}.constructor;
 
 export class Client<T extends (...args: Parameters<T>) => ReturnType<T> = DefaultFunction> {
   private config: Config;
@@ -60,51 +64,57 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T> = Defaul
     this.dataEvent = new DataEvent();
   }
 
-  private fireUpdate = async (queryKey: QueryKeyProps<T>) => {
-    const fn = this.createAsyncWrapper(queryKey.queryFn, {}, queryKey.queryKey);
-    const index = this.queryStore[queryKey.queryKey].indexOf(queryKey);
-    const eventName = `${queryKey.queryKey}-${JSON.stringify(queryKey.args)}`;
-    queryKey.state = 'loading';
-    this.dataEvent.dispatch(eventName, 'LOADING', queryKey);
+  private fireUpdate = async (query: QueryKeyProps<T>, refetch: boolean) => {
+    const { queryKey, queryFn } = query;
+    const name = createId(queryKey);
+    const args = extractParams(queryKey);
+    this.updateQueryState('loading', query);
     try {
-      queryKey.state = 'fetching';
-      this.dataEvent.dispatch(eventName, 'FETCHING', queryKey);
-      const result = await fn(...(queryKey.args || [] as unknown as Parameters<T>));
-      queryKey.state = 'success';
-      queryKey.result = result;
-      this.dataEvent.dispatch(eventName, 'SUCCESS', queryKey);
+      this.updateQueryState('fetching', query);
+      const result = await this.executeQuery(queryFn, args, {}, name, refetch);
+      this.updateQueryState('success', query, result);
     } catch(err) {
-      queryKey.state = 'error';
-      queryKey.error = err;
-      this.dataEvent.dispatch(eventName, 'ERROR', queryKey);
+      this.updateQueryState('error', query, undefined, err);
     }
-    this.queryStore[queryKey.queryKey][index] = queryKey;
   }
 
-  private fireUpdateBg = async (queryKey: QueryKeyProps<T>) => {
-    const fn = this.createAsyncWrapper(queryKey.queryFn, {}, queryKey.queryKey);
-    const index = this.queryStore[queryKey.queryKey].indexOf(queryKey);
-    const eventName = `${queryKey.queryKey}-${JSON.stringify(queryKey.args)}`;
+  private fireUpdateBg = async (query: QueryKeyProps<T>, refetch: boolean) => {
+    const { queryKey, queryFn } = query;
+    const name = createId(queryKey);
+    const args = extractParams(queryKey);
     try {
-      const result = await fn(...queryKey.args);
-      queryKey.state = 'success';
-      queryKey.result = result;
-      this.dataEvent.dispatch(eventName, 'SUCCESS', queryKey);
+      const result = await this.executeQuery(queryFn, args, {}, name, refetch);
+      this.updateQueryState('success', query, result);
     } catch(err) {
-      queryKey.state = 'error';
-      queryKey.error = err;
-      this.dataEvent.dispatch(eventName, 'ERROR', queryKey);
+      this.updateQueryState('error', query, undefined, err);
     }
-    this.queryStore[queryKey.queryKey][index] = queryKey;
   }
 
-  private createAsyncWrapper<T extends (...args: Parameters<T>) => ReturnType<T>>(
-    originalFunction: T,
+  private updateQueryState = (
+    state: RequestState,
+    query: QueryKeyProps<T>,
+    data?: ReturnType<T>,
+    error?: any
+  ) => {
+    query.state = state;
+    if (state === 'success') {
+      query.data = data!;
+    } else if (state === 'error') {
+      query.error = error!;
+    }
+    const eventName = Array.isArray(query.queryKey) ? hashArray(query.queryKey) : query.queryKey;
+    this.dataEvent.dispatch(eventName, state, query);
+    const name = createId(query.queryKey);
+    this.query.setQuery(name, query);
+  };
+
+  private executeQuery = async (
+    queryFn: T,
+    args: Parameters<T> | undefined,
     _options: Options,
     name: string,
     refetch = false,
-  ) {
-    return async (...args: Parameters<T>) => {
+  ) => {
       const now = Date.now();
 
       if ((this.cacheStore.lastClear + this.cacheStore.lifetime) < now) {
@@ -119,8 +129,8 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T> = Defaul
         return Promise.resolve(JSON.parse(item.result)) as ReturnType<T>;
       }
 
-      const result = await originalFunction(...args);
-      const resultToStore = createCache(result, args);
+      const result = await queryFn(...args as unknown as Parameters<T>);
+      const resultToStore = createCache(result, args as unknown as Parameters<T>);
 
       if (item) {
         this.cacheStore.updateItem(resultToStore);
@@ -129,50 +139,49 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T> = Defaul
       }
 
       return result;
-    };
   }
 
-  public fetchQuery(args: FetchQueryProps<T>) {
+  public fetchQuery = (args: FetchQueryProps<T>) => { 
     this.query.fetchQuery(args);
   }
 
-  public refetchQueryOnBackgrond(args: FetchQueryProps<T>) {
+  public refetchQueryOnBackgrond = (args: FetchQueryProps<T>) => { 
     this.query.refetchQuery(args, true);
   }
 
-  public refetchQuery(args: FetchQueryProps<T>) {
+  public refetchQuery = (args: FetchQueryProps<T>) => { 
     this.query.refetchQuery(args);
   }
 
-  public fetchQueries(args: FetchQueryProps<T>[]) {
+  public fetchQueries = (args: FetchQueryProps<T>[]) => { 
     this.query.fetchQueries(args);
   }
 
-  public refetchQueries(args: FetchQueryProps<T>[]) {
+  public refetchQueries = (args: FetchQueryProps<T>[]) => { 
     this.query.refetchQueries(args);
   }
 
-  public refetchQueriesOnBackground(args: FetchQueryProps<T>[]) {
+  public refetchQueriesOnBackground = (args: FetchQueryProps<T>[]) => { 
     this.query.refetchQueries(args, true);
   }
 
-  public setQueryKeys(queryKeys: Record<string, QueryKeyProps<T>[]>) {
+  public setQueryKeys = (queryKeys: Record<string, QueryKeyProps<T>[]>) => { 
     this.query.setQueryKeys(queryKeys);
   }
 
-  public setQueryKey(id: string, queryKeys: QueryKeyProps<T>[]) {
+  public setQueryKey = (id: string, queryKeys: QueryKeyProps<T>[]) => { 
     this.query.setQueryKey(id, queryKeys);
   }
 
-  public getQueryKeys() {
+  public getQueryKeys = () => { 
     return this.query.getQueryKeys();
   }
 
-  public getQueryKey(queryKey: string) {
+  public getQueryKey = (queryKey: string) => { 
     return this.query.getQueryKey(queryKey);
   }
 
-  public getQuery(queryKey: string, args?: Parameters<T>) {
-    return this.query.getQuery(queryKey, args);
+  public getQuery = (queryKey: IdProps<T>) => { 
+    return this.query.getQuery(queryKey);
   }
 }

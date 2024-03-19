@@ -1,6 +1,6 @@
 import { Item } from ".";
 
-export function createCache<T extends (...args: Parameters<T>) => ReturnType<T>>(result: ReturnType<T>, args: Parameters<T>): Item {
+export function createCache<T extends (...args: Parameters<T>) => ReturnType<T>>(result: ReturnType<T>, args: Parameters<T> | []): Item {
   return {
     id: JSON.stringify(args),
     result: JSON.stringify(result),

@@ -1,4 +1,5 @@
 import { QueryKeyProps } from "../query";
+import { RequestState } from "../types";
 
 export type EventTypes = 'UPDATE_DATA' | string;
 
@@ -24,7 +25,7 @@ export class DataEvent<T extends (...args: Parameters<T>) => ReturnType<T>> {
     this.listeners[eventName] = this.listeners[eventName].filter((l) => l !== listener);
   }
 
-  dispatch = (eventName: EventTypes, type: 'SUCCESS' | 'ERROR' | 'FETCHING' | 'LOADING', value: QueryKeyProps<T> | QueryKeyProps<T>[]) => {
+  dispatch = (eventName: EventTypes, type: RequestState, value: QueryKeyProps<T> | QueryKeyProps<T>[]) => {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }

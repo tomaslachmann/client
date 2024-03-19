@@ -1,7 +1,7 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { ClientContext } from './ClientProvider';
-import { createId, extractParams } from './utils/id';
 import { IdProps, QueryOptions, RequestState } from './types';
+import { hashArray, hashObject } from './utils';
 
 const DEFAULT_OPTIONS: QueryOptions = {
   enabled: true,
@@ -13,9 +13,11 @@ const DEFAULT_OPTIONS: QueryOptions = {
 type ClientProps<T extends (...args: Parameters<T>) => ReturnType<T>> = {
   queryKey: IdProps<T>,
   queryFn: T,
+  state?: RequestState,
+  data?: Awaited<ReturnType<T>>,
 }
 
-type Props<T> = {
+type Props<T extends (...args: Parameters<T>) => ReturnType<T>> = {
   clients: ClientProps<T>[],
   options?: Partial<Omit<QueryOptions, 'enabled'>>,
 }
@@ -24,20 +26,20 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
   const context = useContext(ClientContext);
   const { apiClient } = context;
   const [ error, setError ] = useState<Record<string, unknown>>({});
+
+  const optionsHash = useMemo(() => hashObject(options), [options]);
+
   const queryOptions = useMemo(() => {
     return {
       ...DEFAULT_OPTIONS,
       ...options,
     }
-  }, [ options ]);
+  }, [ optionsHash ]);
+
   const mappedClients = useMemo(() => clients.map(({ queryFn, queryKey }) => {
-    const id = createId(queryKey);
     return {
-      fn: queryFn,
-      key: id,
+      queryFn,
       queryKey,
-      id: createId(queryKey),
-      args: extractParams<T>(queryKey) as Parameters<T>,
       state: 'loading' as RequestState,
       data: undefined,
     }
@@ -67,14 +69,14 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
   
   // Effect that will subscribe to events.
   useEffect(() => {
-    mappedClients.forEach(({ id, args }) => {
-      const eventId = `${id}-${JSON.stringify(args)}`;
+    mappedClients.forEach(({ queryKey }) => {
+      const eventId = Array.isArray(queryKey) ? hashArray(queryKey) : queryKey;
       apiClient.dataEvent.addEventListener(eventId, updateData);
     })
 
     return () => {
-      mappedClients.forEach(({ id, args }) => {
-        const eventId = `${id}-${JSON.stringify(args)}`;
+      mappedClients.forEach(({ queryKey }) => {
+        const eventId = Array.isArray(queryKey) ? hashArray(queryKey) : queryKey;
         apiClient.dataEvent.removeEventListener(eventId, updateData);
       })
     }

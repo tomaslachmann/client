@@ -2,6 +2,7 @@ import { Store } from '../cache';
 import { QueryEvent } from '../event/queryEvent';
 import { StoreEvent } from '../event/storeEvent';
 import { QueryKeyProps } from '../query';
+import { createId } from '../utils/id';
 
 export class Action<T extends (...args: Parameters<T>) => ReturnType<T>> {
   cacheStore: Store;
@@ -19,39 +20,41 @@ export class Action<T extends (...args: Parameters<T>) => ReturnType<T>> {
     this.queryEvent.addEventListener('BULK_UPDATE_QUERY', this.bulkAct);
   }
 
-  private bulkAct = (queryKeys: QueryKeyProps<T>[], onBackground: boolean) => {
-    for (const queryKey of queryKeys) {   
+  private bulkAct = (queries: QueryKeyProps<T>[], refetch: boolean, onBackground: boolean) => {
+    for (const query of queries) {   
       if (onBackground) {
-        this.actUpdateBackgroundQuery(queryKey);
+        this.actUpdateBackgroundQuery(query, refetch);
       } else {
-        this.actUpdateQuery(queryKey);
+        this.actUpdateQuery(query, refetch);
       }
     }
   }
 
-  private act = (queryKey: QueryKeyProps<T>, onBackground: boolean) => {
+  private act = (query: QueryKeyProps<T>, refetch: boolean, onBackground: boolean) => {
     if (onBackground) {
-      this.actUpdateBackgroundQuery(queryKey);
+      this.actUpdateBackgroundQuery(query, refetch);
     } else {
-      this.actUpdateQuery(queryKey);
+      this.actUpdateQuery(query, refetch);
     }
   }
 
-  private actUpdateBackgroundQuery = (queryKey: QueryKeyProps<T>) => {
-    //if (this.shouldUpdateQuery(queryKey)) {
-      const newKey = this.queryStore[queryKey.key].filter((q) => JSON.stringify(q) === JSON.stringify(queryKey));
-      newKey.push(queryKey);
-      this.queryStore[queryKey.key] = newKey;
-      this.queryEvent.dispatch('FIRE_UPDATE_BACKGROUND', queryKey);
+  private actUpdateBackgroundQuery = (query: QueryKeyProps<T>, refetch: boolean) => {
+    //if (this.shouldUpdateQuery(query)) {
+      const name = createId(query.queryKey);
+      const newKey = this.queryStore[name].filter((q) => JSON.stringify(q) === JSON.stringify(query));
+      newKey.push(query);
+      this.queryStore[name] = newKey;
+      this.queryEvent.dispatch('FIRE_UPDATE_BACKGROUND', query, refetch);
     //}
   }
 
-  private actUpdateQuery = (queryKey: QueryKeyProps<T>) => {
-    //if (this.shouldUpdateQuery(queryKey)) {
-      const newKey = this.queryStore[queryKey.key].filter((q) => JSON.stringify(q) === JSON.stringify(queryKey));
-      newKey.push(queryKey);
-      this.queryStore[queryKey.key] = newKey;
-      this.queryEvent.dispatch('FIRE_UPDATE', queryKey);
+  private actUpdateQuery = (query: QueryKeyProps<T>, refetch: boolean) => {
+    //if (this.shouldUpdateQuery(query)) {
+      const name = createId(query.queryKey);
+      const newQueries = this.queryStore[name].filter((q) => JSON.stringify(q) === JSON.stringify(query));
+      newQueries.push(query);
+      this.queryStore[name] = newQueries;
+      this.queryEvent.dispatch('FIRE_UPDATE', query, refetch);
     //}
   }
 }

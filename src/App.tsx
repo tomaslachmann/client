@@ -2,18 +2,17 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import { useClient } from './client/useClient';
-import { useClients } from './client/useClients';
+import { useQuery } from './client/hooks/useQuery';
+import { useClient } from './client/ClientProvider';
 
 async function test(test: number) {
   await new Promise((res) => setTimeout(res, 1000));
 	return test;
 }
 
-async function test1(test: string) {
-  setTimeout(() => {
-    throw new Error(test);
-  }, 1000);
+async function test1() {
+  await new Promise((res) => setTimeout(res, 1000));
+	return 'test';
 }
 
 async function testFetch() {
@@ -27,7 +26,15 @@ async function testFetch() {
 
 function App() {
   const [count, setCount] = useState(0);
-  const client1 = useClient({ queryKey: ['test-fn', count], queryFn: test, options: { fetchOnMount: true  } });
+  const client1 = useQuery({ queryKey: ['test-fn', count], queryFn: test, options: { fetchOnMount: true, refetchInterval: 1000 * 5, backgroundRefetch: true  } });
+  console.log(client1);
+/*   const client = useClient();
+  const asd = client.fetch({
+    queryFn: test1,
+    queryKey: 'test-no-args',
+  })
+  console.log(asd);
+  console.log(client.getQuery('test-no-args')); */
   //const client2 = useClient({ queryKey: ['test-fn', 'ahoj-1'], queryFn: test, options: { fetchOnMount: true  } });
 /*   const client3 = useClients({
     clients: [
