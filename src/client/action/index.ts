@@ -22,18 +22,18 @@ export class Action<T extends (...args: Parameters<T>) => ReturnType<T>> {
   private bulkAct = (queryKeys: QueryKeyProps<T>[], onBackground: boolean) => {
     for (const queryKey of queryKeys) {   
       if (onBackground) {
-        this.actUpdateQuery(queryKey);
-      } else {
         this.actUpdateBackgroundQuery(queryKey);
+      } else {
+        this.actUpdateQuery(queryKey);
       }
     }
   }
 
   private act = (queryKey: QueryKeyProps<T>, onBackground: boolean) => {
     if (onBackground) {
-      this.actUpdateQuery(queryKey);
-    } else {
       this.actUpdateBackgroundQuery(queryKey);
+    } else {
+      this.actUpdateQuery(queryKey);
     }
   }
 

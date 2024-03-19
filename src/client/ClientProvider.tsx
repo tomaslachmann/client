@@ -9,8 +9,8 @@ type QueryProps<T extends (...args: Parameters<T>) => ReturnType<T>> = (key: IdP
 type ContextType<T extends (...args: Parameters<T>) => ReturnType<T>> = {
   apiClient: Client<T>,
   invalidateQueries: (queryKey: IdProps<T>) => void,
-  fetch: (queryFn: T, key: string, args: Parameters<T>, state: RequestState, result?: ReturnType<T>) => void,
-  refetch: (queryFn: T, key: string, args: Parameters<T>, state: RequestState, result?: ReturnType<T>) => void,
+  fetch: (arg: FetchQueryProps<T>) => void,
+  refetch: (arg: FetchQueryProps<T>) => void,
   bulkFetch: (args: FetchQueryProps<T>[]) => void,
   bulkRefetch: (args: FetchQueryProps<T>[]) => void,
 }
@@ -50,6 +50,6 @@ export const ClientProvider = memo(function ClientProvider<T extends (...args: P
   );
 });
 
-export function useClientContext() {
+export function useClient() {
   return useContext(ClientContext);
 }

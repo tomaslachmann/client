@@ -10,7 +10,7 @@ const DEFAULT_OPTIONS: QueryOptions = {
   fetchOnMount: true,
 };
 
-type ClientProps<T> = {
+type ClientProps<T extends (...args: Parameters<T>) => ReturnType<T>> = {
   queryKey: IdProps<T>,
   queryFn: T,
 }

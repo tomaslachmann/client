@@ -6,7 +6,6 @@ import { ClientProvider } from './client/ClientProvider';
 import './index.css'
 
 const client = new Client();
-console.log(client);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

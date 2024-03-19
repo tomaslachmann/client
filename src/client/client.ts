@@ -5,7 +5,7 @@ import { DataEvent } from './event/dataEvent';
 import { QueryEvent } from './event/queryEvent';
 import { StoreEvent } from './event/storeEvent';
 import { Query, QueryKeyProps } from './query';
-import { RequestState } from './types';
+import { IdProps, RequestState } from './types';
 
 export const AsyncFunction = async function () {}.constructor;
 
@@ -27,14 +27,15 @@ const DEFAULT_OPTIONS: Config = Object.freeze({
 });
 
 export type FetchQueryProps<T extends (...args: Parameters<T>) => ReturnType<T>> = {
-  fn: T,
-  key: string,
-  args: Parameters<T>,
+  queryFn: T,
+  queryKey: IdProps<T>,
   state: RequestState,
   result?: ReturnType<T>,
 }
 
-export class Client<T extends (...args: Parameters<T>) => ReturnType<T>> {
+type DefaultFunction = (...args: any[]) => any;
+
+export class Client<T extends (...args: Parameters<T>) => ReturnType<T> = DefaultFunction> {
   private config: Config;
   private cacheStore: CacheStore;
   private query: Query<T>;
@@ -60,15 +61,15 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T>> {
   }
 
   private fireUpdate = async (queryKey: QueryKeyProps<T>) => {
-    const fn = this.createAsyncWrapper(queryKey.fn, {}, queryKey.key);
-    const index = this.queryStore[queryKey.key].indexOf(queryKey);
-    const eventName = `${queryKey.key}-${JSON.stringify(queryKey.args)}`;
+    const fn = this.createAsyncWrapper(queryKey.queryFn, {}, queryKey.queryKey);
+    const index = this.queryStore[queryKey.queryKey].indexOf(queryKey);
+    const eventName = `${queryKey.queryKey}-${JSON.stringify(queryKey.args)}`;
     queryKey.state = 'loading';
     this.dataEvent.dispatch(eventName, 'LOADING', queryKey);
     try {
       queryKey.state = 'fetching';
       this.dataEvent.dispatch(eventName, 'FETCHING', queryKey);
-      const result = await fn(...queryKey.args);
+      const result = await fn(...(queryKey.args || [] as unknown as Parameters<T>));
       queryKey.state = 'success';
       queryKey.result = result;
       this.dataEvent.dispatch(eventName, 'SUCCESS', queryKey);
@@ -77,13 +78,13 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T>> {
       queryKey.error = err;
       this.dataEvent.dispatch(eventName, 'ERROR', queryKey);
     }
-    this.queryStore[queryKey.key][index] = queryKey;
+    this.queryStore[queryKey.queryKey][index] = queryKey;
   }
 
   private fireUpdateBg = async (queryKey: QueryKeyProps<T>) => {
-    const fn = this.createAsyncWrapper(queryKey.fn, {}, queryKey.key);
-    const index = this.queryStore[queryKey.key].indexOf(queryKey);
-    const eventName = `${queryKey.key}-${JSON.stringify(queryKey.args)}`;
+    const fn = this.createAsyncWrapper(queryKey.queryFn, {}, queryKey.queryKey);
+    const index = this.queryStore[queryKey.queryKey].indexOf(queryKey);
+    const eventName = `${queryKey.queryKey}-${JSON.stringify(queryKey.args)}`;
     try {
       const result = await fn(...queryKey.args);
       queryKey.state = 'success';
@@ -94,7 +95,7 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T>> {
       queryKey.error = err;
       this.dataEvent.dispatch(eventName, 'ERROR', queryKey);
     }
-    this.queryStore[queryKey.key][index] = queryKey;
+    this.queryStore[queryKey.queryKey][index] = queryKey;
   }
 
   private createAsyncWrapper<T extends (...args: Parameters<T>) => ReturnType<T>>(
@@ -167,11 +168,11 @@ export class Client<T extends (...args: Parameters<T>) => ReturnType<T>> {
     return this.query.getQueryKeys();
   }
 
-  public getQueryKey(key: string) {
-    return this.query.getQueryKey(key);
+  public getQueryKey(queryKey: string) {
+    return this.query.getQueryKey(queryKey);
   }
 
-  public getQuery(key: string, args?: Parameters<T>) {
-    return this.query.getQuery(key, args);
+  public getQuery(queryKey: string, args?: Parameters<T>) {
+    return this.query.getQuery(queryKey, args);
   }
 }

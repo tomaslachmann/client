@@ -5,7 +5,7 @@ import './App.css'
 import { useClient } from './client/useClient';
 import { useClients } from './client/useClients';
 
-async function test(test: string) {
+async function test(test: number) {
   await new Promise((res) => setTimeout(res, 1000));
 	return test;
 }
@@ -16,14 +16,19 @@ async function test1(test: string) {
   }, 1000);
 }
 
+async function testFetch() {
+  const res = await fetch('https://youtube.com');
+  console.log(res);
+}
+
 /* async function testWithArgs(args: string) {
   return Promise.resolve(args);
 } */
 
 function App() {
-  const [count, _setCount] = useState(0);
-  const client1 = useClient({ queryKey: ['test-fn', 'ahoj.'], queryFn: test, options: { fetchOnMount: true  } });
-  const client2 = useClient({ queryKey: ['test-fn', 'ahoj-1'], queryFn: test, options: { fetchOnMount: true  } });
+  const [count, setCount] = useState(0);
+  const client1 = useClient({ queryKey: ['test-fn', count], queryFn: test, options: { fetchOnMount: true  } });
+  //const client2 = useClient({ queryKey: ['test-fn', 'ahoj-1'], queryFn: test, options: { fetchOnMount: true  } });
 /*   const client3 = useClients({
     clients: [
     { queryKey: ['test-fn', 'ahoj-1'], queryFn: test },
@@ -45,9 +50,15 @@ function App() {
       client1.isSuccess && <div>success!</div>
     }
     {
+      client1.isError && <div>Error!</div>
+    }
+    {
+      client1.error && <div>{JSON.stringify(client1.error)}</div>
+    }
+    {
       client1.data && <div>{client1.data}</div>
     }
-        {
+ {/*        {
       client2.isLoading && 'loading...'
     }
     {
@@ -58,7 +69,7 @@ function App() {
     }
     {
       client2.data && <div>{client2.data}</div>
-    }
+    } */}
       <div>
         <a href="https://vitejs.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
@@ -69,7 +80,7 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button>
+        <button onClick={() => setCount(oldCount => oldCount + 1)}>
           count is {count}
         </button>
         <p>
