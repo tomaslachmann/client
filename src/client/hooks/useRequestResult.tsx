@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { RequestState } from '../types';
 
 export type RequestResult<T extends (...args: Parameters<T>) => ReturnType<T>> = {

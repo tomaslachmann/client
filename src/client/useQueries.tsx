@@ -18,11 +18,11 @@ type ClientProps<T extends (...args: Parameters<T>) => ReturnType<T>> = {
 }
 
 type Props<T extends (...args: Parameters<T>) => ReturnType<T>> = {
-  clients: ClientProps<T>[],
+  queries: ClientProps<T>[],
   options?: Partial<Omit<QueryOptions, 'enabled'>>,
 }
 
-export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>({ clients, options = {} }: Props<T>) {
+export function useQueries<T extends (...args: Parameters<T>) => ReturnType<T>>({ queries, options = {} }: Props<T>) {
   const context = useContext(ClientContext);
   const { apiClient } = context;
   const [ error, setError ] = useState<Record<string, unknown>>({});
@@ -36,20 +36,20 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
     }
   }, [ optionsHash ]);
 
-  const mappedClients = useMemo(() => clients.map(({ queryFn, queryKey }) => {
+  const mappedQueries = useMemo(() => queries.map(({ queryFn, queryKey }) => {
     return {
       queryFn,
       queryKey,
       state: 'loading' as RequestState,
       data: undefined,
     }
-  }), [ clients ]);
+  }), [ queries ]);
   const [ data, setData ] = useState<Record<string, ReturnType<T>>>({});
   const [ requestState, setRequestState ] = useState<Record<string, RequestState>>({});
 
   const query = useCallback(async() => {
-    apiClient.fetchQueries(mappedClients);
-  }, [ mappedClients, apiClient ]);
+    apiClient.fetchQueries(mappedQueries);
+  }, [ mappedQueries, apiClient ]);
 
   // Subscribe function
   function updateData(obj: { key: string, result: ReturnType<T>, state: RequestState, error: any }) {
@@ -69,13 +69,13 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
   
   // Effect that will subscribe to events.
   useEffect(() => {
-    mappedClients.forEach(({ queryKey }) => {
+    mappedQueries.forEach(({ queryKey }) => {
       const eventId = Array.isArray(queryKey) ? hashArray(queryKey) : queryKey;
       apiClient.dataEvent.addEventListener(eventId, updateData);
     })
 
     return () => {
-      mappedClients.forEach(({ queryKey }) => {
+      mappedQueries.forEach(({ queryKey }) => {
         const eventId = Array.isArray(queryKey) ? hashArray(queryKey) : queryKey;
         apiClient.dataEvent.removeEventListener(eventId, updateData);
       })
@@ -95,9 +95,9 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
       //Implementing the setInterval method
       const interval = setInterval(() => {
         if (queryOptions.backgroundRefetch) {
-          apiClient.refetchQueriesOnBackground(mappedClients);
+          apiClient.refetchQueriesOnBackground(mappedQueries);
         } else {
-          apiClient.refetchQueries(mappedClients);
+          apiClient.refetchQueries(mappedQueries);
         }
       }, queryOptions.refetchInterval);
 
@@ -116,6 +116,6 @@ export function useClients<T extends (...args: Parameters<T>) => ReturnType<T>>(
     isFetching: Object.values(requestState).some((s) => s === 'fetching'),
     isSuccess: Object.values(requestState).some((s) => s === 'success'),
     isError: Object.values(requestState).some((s) => s === 'error'),
-    isIdle: clients.length === 0,
+    isIdle: queries.length === 0,
   }
 }
